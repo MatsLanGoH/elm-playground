@@ -1,2 +1,10 @@
 # elm-playground
-Practice repo for #elm
+
+## Exercises for Programmers
+
+Implements solutions written in `Elm` for the following exercises from Brian P. Hogan's [Exercises for Programmers](https://pragprog.com/book/bhwb/exercises-for-programmers)
+
+* **Input, Processing, and Output**
+  * [x] #01 Hello, World
+  * [x] #02 Counting Characters
+  * [x] #04 Mad Lib
