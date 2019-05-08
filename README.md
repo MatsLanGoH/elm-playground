@@ -8,3 +8,4 @@ Implements solutions written in `Elm` for the following exercises from Brian P. 
   * [x] #01 Hello, World
   * [x] #02 Counting Characters
   * [x] #04 Mad Lib
+  * [x] #05 Simple Math
