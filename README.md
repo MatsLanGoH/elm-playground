@@ -9,3 +9,6 @@ Implements solutions written in `Elm` for the following exercises from Brian P. 
   * [x] #02 Counting Characters
   * [x] #04 Mad Lib
   * [x] #05 Simple Math
+
+* **Making Decisions**
+  * [x] #21 Numbers to Names
