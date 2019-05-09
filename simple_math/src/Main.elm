@@ -103,14 +103,17 @@ view model =
 -- Note: (Int -> Int -> Int) is the type signature of an Integer arithmetic operator
 
 
-viewCalc : Model -> String -> (Int -> Int -> Int) -> Html Msg
+type alias Arithmetic =
+    Int -> Int -> Int
+
+
+viewCalc : Model -> String -> Arithmetic -> Html Msg
 viewCalc model sym op =
     p []
-        [ text
-            (String.fromInt model.x
+        [ text <|
+            String.fromInt model.x
                 ++ sym
                 ++ String.fromInt model.y
                 ++ " = "
                 ++ String.fromInt (op model.x model.y)
-            )
         ]
