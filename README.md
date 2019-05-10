@@ -12,3 +12,6 @@ Implements solutions written in `Elm` for the following exercises from Brian P. 
 
 * **Making Decisions**
   * [x] #21 Numbers to Names
+
+* **Repetition**
+  * [x] #30 Multiplication Table
