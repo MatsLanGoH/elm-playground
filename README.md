@@ -15,3 +15,6 @@ Implements solutions written in `Elm` for the following exercises from Brian P. 
 
 * **Repetition**
   * [x] #30 Multiplication Table
+
+* **Working with External Services**
+  * [x] #47 Who's in Space?
