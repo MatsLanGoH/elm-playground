@@ -123,20 +123,18 @@ view model =
         ]
 
 
-viewCell : String -> Html Msg
-viewCell str =
+viewCell : List (Attribute Msg) -> String -> Html Msg
+viewCell style str =
     td
-        (cellPadding
-            ++ solidBorder
-        )
+        style
         [ text str ]
 
 
 viewAstronaut : Astronaut -> Html Msg
 viewAstronaut astro =
     tr []
-        [ viewCell astro.name
-        , viewCell astro.craft
+        [ viewCell (cellPadding ++ solidBorderRight) astro.name
+        , viewCell cellPadding astro.craft
         ]
 
 
@@ -151,7 +149,14 @@ viewRoster roster =
             ]
         , table
             solidBorder
-            (List.map viewAstronaut roster.astronauts)
+            ([ tr
+                []
+                [ th (cellPadding ++ solidBorderBottom ++ solidBorderRight) [ text "Name" ]
+                , th (cellPadding ++ solidBorderBottom) [ text "Craft" ]
+                ]
+             ]
+                ++ List.map viewAstronaut roster.astronauts
+            )
         ]
 
 
@@ -175,6 +180,16 @@ main =
 solidBorder : List (Attribute msg)
 solidBorder =
     [ style "border" "1px solid black" ]
+
+
+solidBorderBottom : List (Attribute msg)
+solidBorderBottom =
+    [ style "border-bottom" "1px solid black" ]
+
+
+solidBorderRight : List (Attribute msg)
+solidBorderRight =
+    [ style "border-right" "1px solid black" ]
 
 
 cellPadding : List (Attribute msg)
