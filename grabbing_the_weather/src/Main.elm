@@ -1,12 +1,15 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
+import Config exposing (owmApiBaseUrl, owmApiKey)
+import Convert exposing (humanTimeHM, kelvinToCelsius, kelvinToFahrenheit)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, float, int, string)
 import Json.Decode.Pipeline exposing (required)
+import Url.Builder as U exposing (crossOrigin, string)
 
 
 
@@ -34,6 +37,8 @@ type Page
 type alias OwmData =
     { weather : List OwmWeather
     , main : OwmMain
+    , sys : OwmSys
+    , name : String
     }
 
 
@@ -49,6 +54,16 @@ type alias OwmMain =
     { temp : Float
     , pressure : Int
     , humidity : Int
+    }
+
+
+type alias OwmSys =
+    { type_ : Int
+    , id_ : Int
+    , message : Float
+    , country : String
+    , sunrise : Int
+    , sunset : Int
     }
 
 
@@ -68,6 +83,8 @@ owmDataDecoder =
     Decode.succeed OwmData
         |> required "weather" owmWeatherListDecoder
         |> required "main" owmMainDecoder
+        |> required "sys" owmSysDecoder
+        |> required "name" Decode.string
 
 
 owmWeatherListDecoder : Decoder (List OwmWeather)
@@ -79,9 +96,9 @@ owmWeatherDecoder : Decoder OwmWeather
 owmWeatherDecoder =
     Decode.succeed OwmWeather
         |> required "id" int
-        |> required "main" string
-        |> required "description" string
-        |> required "icon" string
+        |> required "main" Decode.string
+        |> required "description" Decode.string
+        |> required "icon" Decode.string
 
 
 owmMainDecoder : Decoder OwmMain
@@ -92,6 +109,17 @@ owmMainDecoder =
         |> required "humidity" int
 
 
+owmSysDecoder : Decoder OwmSys
+owmSysDecoder =
+    Decode.succeed OwmSys
+        |> required "type" int
+        |> required "id" int
+        |> required "message" float
+        |> required "country" Decode.string
+        |> required "sunrise" int
+        |> required "sunset" int
+
+
 
 ---- UPDATE ----
 
@@ -100,6 +128,7 @@ type Msg
     = NoOp
     | ChangeLocation String
     | ShowResults
+    | ShowSearch
     | GotOwmJson (Result Http.Error String)
 
 
@@ -113,10 +142,19 @@ update msg model =
 
         ShowResults ->
             ( { model | currentPage = ResultPage }
-            , Http.get
-                { url = "https://api.openweathermap.org/data/2.5/weather?q=London,uk&appid="
+            , let
+                resultUrl =
+                    crossOrigin owmApiBaseUrl [] [ U.string "q" model.location, U.string "appid" owmApiKey ]
+              in
+              Http.get
+                { url = resultUrl
                 , expect = Http.expectString GotOwmJson
                 }
+            )
+
+        ShowSearch ->
+            ( { model | currentPage = SearchPage, location = "" }
+            , Cmd.none
             )
 
         GotOwmJson result ->
@@ -141,6 +179,20 @@ update msg model =
 
 
 
+-- VIEW HELPERS
+
+
+getWeather : List OwmWeather -> OwmWeather
+getWeather owmWeatherList =
+    case List.head owmWeatherList of
+        Nothing ->
+            OwmWeather 0 "" "" ""
+
+        Just owmWeather ->
+            owmWeather
+
+
+
 ---- VIEW ----
 
 
@@ -149,14 +201,8 @@ view model =
     div [ class "container" ]
         [ h1 [ class "title" ]
             [ text "Grabbing the Weather" ]
-        , p [ class "subtitle" ]
-            [ span [ class "fa fa-sun" ] []
-            , text " Your Elm App is working!"
-            ]
-        , p []
-            [ strong []
-                [ text "Rise and shine!" ]
-            ]
+        , p [ class "subtitle " ]
+            [ text "Rise and shine!" ]
         , case model.currentPage of
             SearchPage ->
                 viewSearchPage model
@@ -190,10 +236,55 @@ viewResultPage model =
             ]
         , case model.status of
             Success data ->
-                div [] [ text <| String.fromFloat <| data.main.temp ]
+                viewResultWeatherData data
 
             _ ->
                 Html.text ""
+        , button [ class "button", onClick ShowSearch ] [ text "New search" ]
+        ]
+
+
+viewResultWeatherData : OwmData -> Html Msg
+viewResultWeatherData data =
+    let
+        weatherData =
+            getWeather data.weather
+    in
+    div []
+        [ table [ class "table is-hoverable is-striped" ]
+            [ thead []
+                [ tr []
+                    [ th [] [ text "item" ]
+                    , th [] [ text "value" ]
+                    ]
+                ]
+            , tbody []
+                [ tr []
+                    [ td [] [ text "Temperature" ]
+                    , td [] [ "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromFloat) |> text ]
+                    ]
+                , tr []
+                    [ td [] [ text "Weather" ]
+                    , td [] [ weatherData.main |> text ]
+                    ]
+                , tr []
+                    [ td [] [ text "Humidity" ]
+                    , td [] [ data.main.humidity |> String.fromInt |> text ]
+                    ]
+                , tr []
+                    [ td [] [ text "Location" ]
+                    , td [] [ data.name |> text ]
+                    ]
+                , tr []
+                    [ td [] [ text "Sunrise" ]
+                    , td [] [ data.sys.sunrise |> humanTimeHM |> text ]
+                    ]
+                , tr []
+                    [ td [] [ text "Sunset" ]
+                    , td [] [ data.sys.sunset |> humanTimeHM |> text ]
+                    ]
+                ]
+            ]
         ]
 
 
