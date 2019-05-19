@@ -20,7 +20,14 @@ type alias Model =
     { currentPage : Page
     , location : String
     , status : Status
+    , unit : Unit
     }
+
+
+type Unit
+    = Celsius
+    | Fahrenheit
+    | Kelvin
 
 
 type Status
@@ -69,7 +76,7 @@ type alias OwmSys =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { currentPage = SearchPage, location = "", status = Awaiting }
+    ( { currentPage = SearchPage, location = "", status = Awaiting, unit = Celsius }
     , Cmd.none
     )
 
@@ -127,6 +134,7 @@ owmSysDecoder =
 type Msg
     = NoOp
     | ChangeLocation String
+    | SwitchTo Unit
     | ShowResults
     | ShowSearch
     | GotOwmJson (Result Http.Error String)
@@ -137,6 +145,11 @@ update msg model =
     case msg of
         ChangeLocation newLocation ->
             ( { model | location = newLocation }
+            , Cmd.none
+            )
+
+        SwitchTo unit ->
+            ( { model | unit = unit }
             , Cmd.none
             )
 
@@ -198,72 +211,70 @@ getWeather owmWeatherList =
 
 view : Model -> Html Msg
 view model =
-    div [ class "container" ]
-        [ h1 [ class "title" ]
-            [ text "Grabbing the Weather" ]
-        , p [ class "subtitle " ]
-            [ text "Rise and shine!" ]
-        , case model.currentPage of
-            SearchPage ->
-                viewSearchPage model
+    section [ class "section" ]
+        [ div [ class "container is-size-5" ]
+            [ h1 [ class "title" ]
+                [ text "Grabbing the Weather" ]
+            , p [ class "subtitle " ]
+                [ text "Rise and shine!" ]
+            , case model.currentPage of
+                SearchPage ->
+                    viewSearchPage model
 
-            ResultPage ->
-                viewResultPage model
+                ResultPage ->
+                    viewResultPage model
+            ]
         ]
 
 
 viewSearchPage : Model -> Html Msg
 viewSearchPage model =
     div [ class "card" ]
-        [ h1 [ class "card-header" ]
+        [ h1 [ class "card-header level-item" ]
             [ text "Search Page" ]
         , p [ class "card-content" ]
-            [ text "Let's implement a search page here "
+            [ text "Where are you at? "
+            , br [] []
             , input [ value model.location, placeholder "Location", onInput ChangeLocation ] []
-            , button [ class "button", onClick ShowResults ] [ text "Search" ]
             ]
+        , button [ class "button", onClick ShowResults, disabled (String.length model.location == 0) ] [ text "Search" ]
         ]
 
 
 viewResultPage : Model -> Html Msg
 viewResultPage model =
-    div [ class "card" ]
-        [ h1 [ class "card-header" ]
+    div [ class "card " ]
+        [ h1 [ class "card-header level-item" ]
             [ text "Results Page" ]
-        , p [ class "card-content" ]
-            [ case model.status of
-                Success data ->
-                    viewResultWeatherData data
+        , case model.status of
+            Success data ->
+                viewResultWeatherData model data
 
-                _ ->
-                    Html.text ""
-            , button [ class "button", onClick ShowSearch ] [ text "New search" ]
-            ]
+            _ ->
+                Html.text ""
+        , viewRadioTemperatureUnit model
+        , button [ class "button", onClick ShowSearch ] [ text "New search" ]
         ]
 
 
-viewResultWeatherData : OwmData -> Html Msg
-viewResultWeatherData data =
+viewResultWeatherData : Model -> OwmData -> Html Msg
+viewResultWeatherData model data =
     let
         weatherData =
             getWeather data.weather
     in
-    div []
+    p [ class "card-content level-item has-text-centered" ]
         [ table [ class "table is-hoverable is-striped" ]
             [ thead []
                 [ tr []
-                    [ th [] [ text "item" ]
-                    , th [] [ text "value" ]
+                    [ th [] [ text "Location" ]
+                    , th [] [ data.name |> text ]
                     ]
                 ]
             , tbody []
                 [ tr []
-                    [ td [] [ text "Location" ]
-                    , td [] [ data.name |> text ]
-                    ]
-                , tr []
                     [ td [] [ text "Temperature" ]
-                    , td [] [ "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromInt) |> text ]
+                    , td [] [ viewTemperature model data |> text ]
                     ]
                 , tr []
                     [ td [] [ text "Weather" ]
@@ -284,6 +295,41 @@ viewResultWeatherData data =
                 ]
             ]
         ]
+
+
+viewRadioTemperatureUnit : Model -> Html Msg
+viewRadioTemperatureUnit model =
+    div [ class "control" ]
+        [ h3 [ class "subtitle" ]
+            [ text "Choose temperature unit: " ]
+        , fieldset
+            []
+            [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
+            , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
+            , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
+            ]
+        ]
+
+
+radio : String -> Bool -> Msg -> Html Msg
+radio value isChecked msg =
+    label [ class "radio" ]
+        [ input [ type_ "radio", name "unit", onClick msg, checked isChecked ] []
+        , text (" " ++ value)
+        ]
+
+
+viewTemperature : Model -> OwmData -> String
+viewTemperature model data =
+    case model.unit of
+        Fahrenheit ->
+            "°F" |> (++) (data.main.temp |> kelvinToFahrenheit |> String.fromInt)
+
+        Celsius ->
+            "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromInt)
+
+        Kelvin ->
+            "K" |> (++) (data.main.temp |> String.fromFloat)
 
 
 
