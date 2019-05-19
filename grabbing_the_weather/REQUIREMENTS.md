@@ -6,10 +6,10 @@
 
 ## Challenges
 
-- [ ] Displays sunrise and sunset times.
-- [ ] Displays humidity and weather description
+- [x] Displays sunrise and sunset times.
+- [x] Displays humidity and weather description
 - [ ] Displays wind direction in human-readable language
-- [ ] Has a scheme that says wheter or not it's a nice day (e.g. if it's 25
-  degrees celsius and clear skies, it should be a nice day)
+  - Figure out wind.deg first (Maybe deg)
+- [ ] Has a scheme that says wheter or not it's a nice day (e.g. if it's 25 degrees celsius and clear skies, it should be a nice day)
 - [ ] Displays temperature in both Celsius and Fahrenheit
 - [ ] Displays whether a person needs a coat or an umbrella

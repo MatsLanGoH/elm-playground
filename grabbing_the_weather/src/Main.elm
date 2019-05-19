@@ -231,16 +231,14 @@ viewResultPage model =
         [ h1 [ class "card-header" ]
             [ text "Results Page" ]
         , p [ class "card-content" ]
-            [ text "Your location: "
-            , text model.location
-            ]
-        , case model.status of
-            Success data ->
-                viewResultWeatherData data
+            [ case model.status of
+                Success data ->
+                    viewResultWeatherData data
 
-            _ ->
-                Html.text ""
-        , button [ class "button", onClick ShowSearch ] [ text "New search" ]
+                _ ->
+                    Html.text ""
+            , button [ class "button", onClick ShowSearch ] [ text "New search" ]
+            ]
         ]
 
 
@@ -260,8 +258,12 @@ viewResultWeatherData data =
                 ]
             , tbody []
                 [ tr []
+                    [ td [] [ text "Location" ]
+                    , td [] [ data.name |> text ]
+                    ]
+                , tr []
                     [ td [] [ text "Temperature" ]
-                    , td [] [ "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromFloat) |> text ]
+                    , td [] [ "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromInt) |> text ]
                     ]
                 , tr []
                     [ td [] [ text "Weather" ]
@@ -269,19 +271,15 @@ viewResultWeatherData data =
                     ]
                 , tr []
                     [ td [] [ text "Humidity" ]
-                    , td [] [ data.main.humidity |> String.fromInt |> text ]
-                    ]
-                , tr []
-                    [ td [] [ text "Location" ]
-                    , td [] [ data.name |> text ]
+                    , td [] [ "%" |> (++) (data.main.humidity |> String.fromInt) |> text ]
                     ]
                 , tr []
                     [ td [] [ text "Sunrise" ]
-                    , td [] [ data.sys.sunrise |> humanTimeHM |> text ]
+                    , td [] [ humanTimeHM data.sys.sunrise |> text ]
                     ]
                 , tr []
                     [ td [] [ text "Sunset" ]
-                    , td [] [ data.sys.sunset |> humanTimeHM |> text ]
+                    , td [] [ humanTimeHM data.sys.sunset |> text ]
                     ]
                 ]
             ]
