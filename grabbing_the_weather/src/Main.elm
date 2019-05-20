@@ -2,13 +2,16 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
-import Convert exposing (humanTimeHM, kelvinToCelsius, kelvinToFahrenheit)
+import Convert exposing (humanTimeHMS, kelvinToCelsius, kelvinToFahrenheit)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, float, int, string)
 import Json.Decode.Pipeline exposing (required)
+import Task exposing (Task)
+import Time
+import TimeZone
 import Url.Builder as U exposing (crossOrigin, string)
 
 
@@ -21,6 +24,8 @@ type alias Model =
     , location : String
     , status : Status
     , unit : Unit
+    , timezone : Time.Zone
+    , zonename : String
     }
 
 
@@ -34,6 +39,11 @@ type Status
     = Awaiting
     | Failure
     | Success OwmData
+
+
+type TZ
+    = TzFailure TimeZone.Error
+    | TzSuccess String Time.Zone
 
 
 type Page
@@ -76,8 +86,14 @@ type alias OwmSys =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { currentPage = SearchPage, location = "", status = Awaiting, unit = Celsius }
-    , Cmd.none
+    ( { currentPage = SearchPage
+      , location = ""
+      , status = Awaiting
+      , unit = Celsius
+      , timezone = Time.utc
+      , zonename = "UTC"
+      }
+    , TimeZone.getZone |> Task.attempt ReceiveTimeZone
     )
 
 
@@ -138,6 +154,7 @@ type Msg
     | ShowResults
     | ShowSearch
     | GotOwmJson (Result Http.Error String)
+    | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -154,7 +171,7 @@ update msg model =
             )
 
         ShowResults ->
-            ( { model | currentPage = ResultPage }
+            ( model
             , let
                 resultUrl =
                     crossOrigin owmApiBaseUrl [] [ U.string "q" model.location, U.string "appid" owmApiKey ]
@@ -179,13 +196,23 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | status = Success data }, Cmd.none )
+                            ( { model | status = Success data, currentPage = ResultPage }, Cmd.none )
 
                         Err _ ->
                             ( { model | status = Failure }, Cmd.none )
 
                 Err _ ->
                     ( { model | status = Failure }, Cmd.none )
+
+        ReceiveTimeZone result ->
+            ( case result of
+                Ok ( zoneName, zone ) ->
+                    { model | timezone = zone, zonename = zoneName }
+
+                Err error ->
+                    { model | timezone = Time.utc }
+            , Cmd.none
+            )
 
         NoOp ->
             ( model, Cmd.none )
@@ -232,18 +259,31 @@ viewSearchPage model =
     div [ class "card" ]
         [ h1 [ class "card-header level-item" ]
             [ text "Search Page" ]
-        , p [ class "card-content" ]
-            [ text "Where are you at? "
-            , br [] []
+        , div [ class "card-content" ]
+            [ p [] [ text "Where are you at?" ]
             , input [ value model.location, placeholder "Location", onInput ChangeLocation ] []
+            , viewSearchError model
             ]
-        , button [ class "button", onClick ShowResults, disabled (String.length model.location == 0) ] [ text "Search" ]
+        , div [ class "box" ]
+            [ button [ class "button", onClick ShowResults, disabled (String.length model.location == 0) ]
+                [ text "Search" ]
+            ]
         ]
+
+
+viewSearchError : Model -> Html Msg
+viewSearchError model =
+    case model.status of
+        Failure ->
+            p [ class "text-danger" ] [ text "Location not found." ]
+
+        _ ->
+            text ""
 
 
 viewResultPage : Model -> Html Msg
 viewResultPage model =
-    div [ class "card " ]
+    div [ class "card" ]
         [ h1 [ class "card-header level-item" ]
             [ text "Results Page" ]
         , case model.status of
@@ -253,7 +293,10 @@ viewResultPage model =
             _ ->
                 Html.text ""
         , viewRadioTemperatureUnit model
-        , button [ class "button", onClick ShowSearch ] [ text "New search" ]
+        , div [ class "box" ]
+            [ button [ class "button", onClick ShowSearch ]
+                [ text "New search" ]
+            ]
         ]
 
 
@@ -263,50 +306,86 @@ viewResultWeatherData model data =
         weatherData =
             getWeather data.weather
     in
-    p [ class "card-content level-item has-text-centered" ]
-        [ table [ class "table is-hoverable is-striped" ]
-            [ thead []
-                [ tr []
-                    [ th [] [ text "Location" ]
-                    , th [] [ data.name |> text ]
+    div [ class "box" ]
+        [ viewWeatherCatchPhrase weatherData
+        , div [ class "level-item" ]
+            [ table [ class "table is-hoverable is-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [] [ text "Location" ]
+                        , th [] [ data.name |> text ]
+                        ]
                     ]
-                ]
-            , tbody []
-                [ tr []
-                    [ td [] [ text "Temperature" ]
-                    , td [] [ viewTemperature model data |> text ]
-                    ]
-                , tr []
-                    [ td [] [ text "Weather" ]
-                    , td [] [ weatherData.main |> text ]
-                    ]
-                , tr []
-                    [ td [] [ text "Humidity" ]
-                    , td [] [ "%" |> (++) (data.main.humidity |> String.fromInt) |> text ]
-                    ]
-                , tr []
-                    [ td [] [ text "Sunrise" ]
-                    , td [] [ humanTimeHM data.sys.sunrise |> text ]
-                    ]
-                , tr []
-                    [ td [] [ text "Sunset" ]
-                    , td [] [ humanTimeHM data.sys.sunset |> text ]
+                , tbody []
+                    [ tr []
+                        [ td [] [ text "Temperature" ]
+                        , td [] [ viewTemperature model data |> text ]
+                        ]
+                    , tr []
+                        [ td [] [ text "Weather" ]
+                        , td [] [ weatherData.main |> text ]
+                        ]
+                    , tr []
+                        [ td [] [ text "Humidity" ]
+                        , td [] [ "%" |> (++) (data.main.humidity |> String.fromInt) |> text ]
+                        ]
+                    , tr []
+                        [ td [] [ text "Sunrise" ]
+                        , td [] [ humanTimeHMS data.sys.sunrise model.timezone model.zonename |> text ]
+                        ]
+                    , tr []
+                        [ td [] [ text "Sunset" ]
+                        , td [] [ humanTimeHMS data.sys.sunset model.timezone model.zonename |> text ]
+                        ]
                     ]
                 ]
             ]
         ]
 
 
+viewWeatherCatchPhrase : OwmWeather -> Html Msg
+viewWeatherCatchPhrase weather =
+    let
+        catchphrase =
+            if weather.id > 800 then
+                "What's a few clouds, ey?"
+
+            else if weather.id == 800 then
+                "Clear blue sky!"
+
+            else if weather.id >= 700 then
+                "The skies are falling!"
+
+            else if weather.id >= 600 then
+                "Winter is coming."
+
+            else if weather.id >= 500 then
+                "Might wanna get an umbrella."
+
+            else if weather.id >= 300 then
+                "It's not rain, more like a curative mist."
+
+            else if weather.id >= 200 then
+                "Thunderbolt and lightning? Check."
+
+            else
+                "Here's your weather report."
+    in
+    div [ class "title is-3 is-spaced" ] [ text catchphrase ]
+
+
 viewRadioTemperatureUnit : Model -> Html Msg
 viewRadioTemperatureUnit model =
-    div [ class "control" ]
-        [ h3 [ class "subtitle" ]
-            [ text "Choose temperature unit: " ]
-        , fieldset
-            []
-            [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
-            , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
-            , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
+    div [ class "control box" ]
+        [ div [ class "level-item" ]
+            [ h3 [ class "subtitle" ]
+                [ text "Choose temperature unit: " ]
+            , fieldset
+                []
+                [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
+                , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
+                , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
+                ]
             ]
         ]
 

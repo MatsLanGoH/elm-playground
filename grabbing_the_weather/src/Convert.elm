@@ -1,6 +1,7 @@
-module Convert exposing (humanTimeHM, kelvinToCelsius, kelvinToFahrenheit)
+module Convert exposing (humanTimeHMS, kelvinToCelsius, kelvinToFahrenheit)
 
-import Time exposing (toHour, toMinute, toSecond, utc)
+import Time exposing (Posix, Zone, toHour, toMinute, toSecond, utc)
+import TimeZone
 
 
 
@@ -21,14 +22,16 @@ kelvinToFahrenheit kelvin =
 -- Time conversion
 
 
-toUtcString : Time.Posix -> String
-toUtcString time =
-    padString (String.fromInt (toHour utc time))
+posixToString : Posix -> Zone -> String -> String
+posixToString time zone zonename =
+    padString (String.fromInt (toHour zone time))
         ++ ":"
-        ++ padString (String.fromInt (toMinute utc time))
+        ++ padString (String.fromInt (toMinute zone time))
         ++ ":"
-        ++ padString (String.fromInt (toSecond utc time))
-        ++ " (UTC)"
+        ++ padString (String.fromInt (toSecond zone time))
+        ++ " ("
+        ++ zonename
+        ++ ")"
 
 
 padString : String -> String
@@ -41,10 +44,10 @@ padString str =
             str
 
 
-humanTimeHM : Int -> String
-humanTimeHM ms =
+humanTimeHMS : Int -> Zone -> String -> String
+humanTimeHMS ms zone zonename =
     let
         time =
             Time.millisToPosix (ms * 1000)
     in
-    toUtcString time
+    posixToString time zone zonename
