@@ -283,12 +283,6 @@ view model =
                 [ text "Grabbing the Weather" ]
             , p [ class "subtitle " ]
                 [ text "Rise and shine!" ]
-            , div [ class "box" ]
-                [ viewRadioTemperatureUnit model
-                ]
-            , div [ class "box" ]
-                [ viewSelectTimeZone model
-                ]
             , case model.currentPage of
                 SearchPage ->
                     viewSearchPage model
