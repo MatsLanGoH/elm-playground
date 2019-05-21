@@ -283,6 +283,12 @@ view model =
                 [ text "Grabbing the Weather" ]
             , p [ class "subtitle " ]
                 [ text "Rise and shine!" ]
+            , div [ class "box" ]
+                [ viewRadioTemperatureUnit model
+                ]
+            , div [ class "box" ]
+                [ viewSelectTimeZone model
+                ]
             , case model.currentPage of
                 SearchPage ->
                     viewSearchPage model
@@ -413,32 +419,52 @@ viewResultWeatherData model data =
 viewWeatherCatchPhrase : OwmWeather -> Html Msg
 viewWeatherCatchPhrase weather =
     let
-        catchphrase =
+        ( icon, catchphrase ) =
             if weather.id > 800 then
-                "What's a few clouds, ey?"
+                ( "cloud"
+                , "What's a few clouds, ey?"
+                )
 
             else if weather.id == 800 then
-                "Clear blue sky!"
+                ( "sun"
+                , "Clear blue sky!"
+                )
 
             else if weather.id >= 700 then
-                "The skies are falling!"
+                ( "cloud-meatball"
+                , "The skies are falling!"
+                )
 
             else if weather.id >= 600 then
-                "Winter is coming."
+                ( "snowflake"
+                , "Winter is coming."
+                )
 
             else if weather.id >= 500 then
-                "Might wanna get an umbrella."
+                ( "cloud-showers-heavy"
+                , "Might wanna get an umbrella."
+                )
 
             else if weather.id >= 300 then
-                "It's not rain, more like a curative mist."
+                ( "cloud-rain"
+                , "It's not rain, more like a curative mist."
+                )
 
             else if weather.id >= 200 then
-                "Thunderbolt and lightning? Check."
+                ( "bolt"
+                , "Thunderbolt and lightning? Check."
+                )
 
             else
-                "Here's your weather report."
+                ( "rainbow"
+                , "Here's your weather report."
+                )
     in
-    div [ class "title is-3 is-spaced" ] [ text catchphrase ]
+    div [ class "title is-3 is-spaced" ]
+        [ span [ class ("fa fa-" ++ icon) ] []
+        , text " "
+        , text catchphrase
+        ]
 
 
 viewRadioTemperatureUnit : Model -> Html Msg
