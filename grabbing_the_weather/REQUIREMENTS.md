@@ -13,3 +13,8 @@
 - [ ] Has a scheme that says wheter or not it's a nice day (e.g. if it's 25 degrees celsius and clear skies, it should be a nice day)
 - [x] Displays temperature in both Celsius and Fahrenheit
 - [x] Displays whether a person needs a coat or an umbrella
+
+## Optional
+
+- [x] Allows users to select their timezone and adjust sunrise/sunset times accordingly.
+- [x] Includes a setting screen to toggle Temperature units, and Timezones
