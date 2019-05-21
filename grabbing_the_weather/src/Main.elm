@@ -21,6 +21,7 @@ import Url.Builder as U exposing (crossOrigin, string)
 
 type alias Model =
     { currentPage : Page
+    , previousPage : Maybe Page
     , location : String
     , status : Status
     , unit : Unit
@@ -49,6 +50,7 @@ type TZ
 type Page
     = SearchPage
     | ResultPage
+    | SettingsPage
 
 
 type alias OwmData =
@@ -87,6 +89,7 @@ type alias OwmSys =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { currentPage = SearchPage
+      , previousPage = Nothing
       , location = ""
       , status = Awaiting
       , unit = Celsius
@@ -153,6 +156,7 @@ type Msg
     | SwitchTo Unit
     | ShowResults
     | ShowSearch
+    | ToggleSettings
     | GotOwmJson (Result Http.Error String)
     | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
 
@@ -186,6 +190,27 @@ update msg model =
             ( { model | currentPage = SearchPage, location = "" }
             , Cmd.none
             )
+
+        ToggleSettings ->
+            case model.currentPage of
+                SettingsPage ->
+                    let
+                        previous =
+                            case model.previousPage of
+                                Nothing ->
+                                    SearchPage
+
+                                Just page ->
+                                    page
+                    in
+                    ( { model | previousPage = Just SettingsPage, currentPage = previous }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( { model | previousPage = Just model.currentPage, currentPage = SettingsPage }
+                    , Cmd.none
+                    )
 
         GotOwmJson result ->
             case result of
@@ -250,6 +275,32 @@ view model =
 
                 ResultPage ->
                     viewResultPage model
+
+                SettingsPage ->
+                    viewSettingsPage model
+            , div [ class "box" ]
+                [ button
+                    [ class "button"
+                    , onClick ToggleSettings
+                    ]
+                    [ span [ class "fa fa-cog" ] []
+                    , text "Settings"
+                    ]
+                ]
+            ]
+        ]
+
+
+viewSettingsPage : Model -> Html Msg
+viewSettingsPage model =
+    div [ class "card" ]
+        [ h1 [ class "card-header level-item" ]
+            [ text "Settings Page"
+            ]
+        , div [ class "card-content" ]
+            [ div [ class "box" ]
+                [ viewRadioTemperatureUnit model
+                ]
             ]
         ]
 
@@ -292,7 +343,6 @@ viewResultPage model =
 
             _ ->
                 Html.text ""
-        , viewRadioTemperatureUnit model
         , div [ class "box" ]
             [ button [ class "button", onClick ShowSearch ]
                 [ text "New search" ]
@@ -376,16 +426,14 @@ viewWeatherCatchPhrase weather =
 
 viewRadioTemperatureUnit : Model -> Html Msg
 viewRadioTemperatureUnit model =
-    div [ class "control box" ]
-        [ div [ class "level-item" ]
-            [ h3 [ class "subtitle" ]
-                [ text "Choose temperature unit: " ]
-            , fieldset
-                []
-                [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
-                , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
-                , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
-                ]
+    div [ class "text-center" ]
+        [ h3 [ class "subtitle" ]
+            [ text "Choose temperature unit: " ]
+        , fieldset
+            []
+            [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
+            , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
+            , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
             ]
         ]
 
