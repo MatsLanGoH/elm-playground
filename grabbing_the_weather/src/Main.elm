@@ -3,6 +3,7 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
 import Convert exposing (humanTimeHMS, kelvinToCelsius, kelvinToFahrenheit)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -159,6 +160,7 @@ type Msg
     | ToggleSettings
     | GotOwmJson (Result Http.Error String)
     | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
+    | SetTimeZone String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -239,6 +241,18 @@ update msg model =
             , Cmd.none
             )
 
+        SetTimeZone newZonename ->
+            case Dict.get newZonename TimeZone.zones of
+                Nothing ->
+                    ( model
+                    , Cmd.none
+                    )
+
+                Just tz ->
+                    ( { model | zonename = newZonename, timezone = tz () }
+                    , Cmd.none
+                    )
+
         NoOp ->
             ( model, Cmd.none )
 
@@ -300,6 +314,9 @@ viewSettingsPage model =
         , div [ class "card-content" ]
             [ div [ class "box" ]
                 [ viewRadioTemperatureUnit model
+                ]
+            , div [ class "box" ]
+                [ viewSelectTimeZone model
                 ]
             ]
         ]
@@ -444,6 +461,34 @@ radio value isChecked msg =
         [ input [ type_ "radio", name "unit", onClick msg, checked isChecked ] []
         , text (" " ++ value)
         ]
+
+
+viewSelectTimeZone : Model -> Html Msg
+viewSelectTimeZone model =
+    div [ class "text-center" ]
+        [ h3 [ class "subtitle" ]
+            [ text "Choose time zone: " ]
+        , div [ class "field" ]
+            [ p [ class "control has-icons-left" ]
+                [ span [ class "select" ]
+                    [ select [ onInput SetTimeZone ]
+                        (viewSelectOptions model.zonename TimeZone.zones)
+                    ]
+                , span [ class "icon is-small is-left" ]
+                    [ i [ class "fas fa-globe" ] [] ]
+                ]
+            ]
+        ]
+
+
+viewSelectOptions : String -> Dict String (() -> Time.Zone) -> List (Html Msg)
+viewSelectOptions check tzDict =
+    List.map (selectOption check) (Dict.keys tzDict)
+
+
+selectOption : String -> String -> Html Msg
+selectOption check val =
+    option [ value val, selected (check == val) ] [ text val ]
 
 
 viewTemperature : Model -> OwmData -> String
