@@ -427,15 +427,7 @@ viewResultWeatherData model data =
                         [ td [] [ text "Sunset" ]
                         , td [] [ humanTimeHMS data.sys.sunset model.timezone model.zonename |> text ]
                         ]
-                    , case data.wind of
-                        Just w ->
-                            tr []
-                                [ td [] [ text "Wind" ]
-                                , td [] [ viewWind w |> text ]
-                                ]
-
-                        _ ->
-                            text ""
+                    , trDisplayWind data.wind
                     ]
                 ]
             ]
@@ -555,6 +547,19 @@ viewTemperature model data =
 
         Kelvin ->
             "K" |> (++) (data.main.temp |> String.fromFloat)
+
+
+trDisplayWind : Maybe OwmWind -> Html Msg
+trDisplayWind owmWind =
+    case owmWind of
+        Just wind ->
+            tr []
+                [ td [] [ text "Wind" ]
+                , td [] [ viewWind wind |> text ]
+                ]
+
+        _ ->
+            text ""
 
 
 viewWind : OwmWind -> String
