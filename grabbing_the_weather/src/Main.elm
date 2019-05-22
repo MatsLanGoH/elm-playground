@@ -8,8 +8,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode as Decode exposing (Decoder, decodeString, float, int, string)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode as Decode exposing (Decoder, decodeString, float, int, nullable, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import Task exposing (Task)
 import Time
 import TimeZone
@@ -58,6 +58,7 @@ type alias OwmData =
     { weather : List OwmWeather
     , main : OwmMain
     , sys : OwmSys
+    , wind : Maybe OwmWind
     , name : String
     }
 
@@ -87,6 +88,12 @@ type alias OwmSys =
     }
 
 
+type alias OwmWind =
+    { speed : Float
+    , degree : Float
+    }
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { currentPage = SearchPage
@@ -111,6 +118,7 @@ owmDataDecoder =
         |> required "weather" owmWeatherListDecoder
         |> required "main" owmMainDecoder
         |> required "sys" owmSysDecoder
+        |> required "wind" (nullable owmWindDecoder)
         |> required "name" Decode.string
 
 
@@ -134,6 +142,13 @@ owmMainDecoder =
         |> required "temp" float
         |> required "pressure" int
         |> required "humidity" int
+
+
+owmWindDecoder : Decoder OwmWind
+owmWindDecoder =
+    Decode.succeed OwmWind
+        |> required "speed" float
+        |> required "deg" float
 
 
 owmSysDecoder : Decoder OwmSys
@@ -278,7 +293,7 @@ getWeather owmWeatherList =
 view : Model -> Html Msg
 view model =
     section [ class "section" ]
-        [ div [ class "container is-size-5" ]
+        [ div [ class "container is-loading" ]
             [ h1 [ class "title" ]
                 [ text "Grabbing the Weather" ]
             , p [ class "subtitle " ]
@@ -309,8 +324,7 @@ viewSettingsPage : Model -> Html Msg
 viewSettingsPage model =
     div [ class "card" ]
         [ h1 [ class "card-header level-item" ]
-            [ text "Settings Page"
-            ]
+            [ text "Settings Page" ]
         , div [ class "card-content" ]
             [ div [ class "box" ]
                 [ viewRadioTemperatureUnit model
@@ -328,13 +342,22 @@ viewSearchPage model =
         [ h1 [ class "card-header level-item" ]
             [ text "Search Page" ]
         , div [ class "card-content" ]
-            [ p [] [ text "Where are you at?" ]
-            , input [ value model.location, placeholder "Location", onInput ChangeLocation ] []
-            , viewSearchError model
-            ]
-        , div [ class "box" ]
-            [ button [ class "button", onClick ShowResults, disabled (String.length model.location == 0) ]
-                [ text "Search" ]
+            [ div [ class "box" ]
+                [ h3 [ class "subtitle" ] [ text "Where are you at?" ]
+                , div [ class "field has-addons" ]
+                    [ div [ class "control is-expanded" ]
+                        [ input [ class "input is-large", value model.location, placeholder "Location", onInput ChangeLocation ] []
+                        ]
+                    , div [ class "control" ]
+                        [ button [ class "button is-large is-info", onClick ShowResults, disabled (String.length model.location == 0) ]
+                            [ span [ class "icon is-large is-right" ]
+                                [ i [ class "fa fa-globe" ] []
+                                ]
+                            ]
+                        ]
+                    ]
+                , viewSearchError model
+                ]
             ]
         ]
 
@@ -404,6 +427,15 @@ viewResultWeatherData model data =
                         [ td [] [ text "Sunset" ]
                         , td [] [ humanTimeHMS data.sys.sunset model.timezone model.zonename |> text ]
                         ]
+                    , case data.wind of
+                        Just w ->
+                            tr []
+                                [ td [] [ text "Wind" ]
+                                , td [] [ viewWind w |> text ]
+                                ]
+
+                        _ ->
+                            text ""
                     ]
                 ]
             ]
@@ -440,7 +472,7 @@ viewWeatherCatchPhrase weather =
                 )
 
             else if weather.id >= 300 then
-                ( "shower"
+                ( "cloud-rain"
                 , "It's not rain, more like a curative mist."
                 )
 
@@ -490,12 +522,12 @@ viewSelectTimeZone model =
         [ h3 [ class "subtitle" ]
             [ text "Choose time zone: " ]
         , div [ class "field" ]
-            [ p [ class "control has-icons-left" ]
-                [ span [ class "select" ]
+            [ p [ class "control has-icons-left is-expanded" ]
+                [ span [ class "select is-fullwidth" ]
                     [ select [ onInput SetTimeZone ]
                         (viewSelectOptions model.zonename TimeZone.zones)
                     ]
-                , span [ class "icon is-small is-left" ]
+                , span [ class "icon is-left" ]
                     [ i [ class "fas fa-globe" ] [] ]
                 ]
             ]
@@ -523,6 +555,42 @@ viewTemperature model data =
 
         Kelvin ->
             "K" |> (++) (data.main.temp |> String.fromFloat)
+
+
+viewWind : OwmWind -> String
+viewWind owmWind =
+    let
+        direction =
+            if owmWind.degree >= 348.75 then
+                "N"
+
+            else if owmWind.degree >= 281.25 then
+                "NW"
+
+            else if owmWind.degree >= 236.25 then
+                "W"
+
+            else if owmWind.degree >= 191.25 then
+                "SW"
+
+            else if owmWind.degree >= 146.25 then
+                "S"
+
+            else if owmWind.degree >= 101.25 then
+                "SE"
+
+            else if owmWind.degree >= 56.25 then
+                "E"
+
+            else if owmWind.degree >= 11.25 then
+                "NE"
+
+            else
+                "N"
+    in
+    String.fromFloat owmWind.speed
+        ++ "m/s from "
+        ++ direction
 
 
 
