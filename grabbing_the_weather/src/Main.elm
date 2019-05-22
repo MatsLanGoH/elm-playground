@@ -440,7 +440,7 @@ viewWeatherCatchPhrase weather =
                 )
 
             else if weather.id >= 300 then
-                ( "cloud-rain"
+                ( "shower"
                 , "It's not rain, more like a curative mist."
                 )
 
@@ -455,8 +455,9 @@ viewWeatherCatchPhrase weather =
                 )
     in
     div [ class "title is-3 is-spaced" ]
-        [ span [ class ("fa fa-" ++ icon) ] []
-        , text " "
+        [ p []
+            [ i [ class ("fa fa-" ++ icon) ] []
+            ]
         , text catchphrase
         ]
 
