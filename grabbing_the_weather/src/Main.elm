@@ -23,6 +23,7 @@ import Url.Builder as U exposing (crossOrigin, string)
 type alias Model =
     { currentPage : Page
     , previousPage : Maybe Page
+    , navbar : Toggle
     , location : String
     , status : Status
     , unit : Unit
@@ -41,6 +42,11 @@ type Status
     = Awaiting
     | Failure
     | Success OwmData
+
+
+type Toggle
+    = Active
+    | Inactive
 
 
 type TZ
@@ -98,6 +104,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { currentPage = SearchPage
       , previousPage = Nothing
+      , navbar = Inactive
       , location = ""
       , status = Awaiting
       , unit = Celsius
@@ -172,6 +179,7 @@ type Msg
     | SwitchTo Unit
     | ShowResults
     | ShowSearch
+    | ToggleNavbar Toggle
     | ToggleSettings
     | GotOwmJson (Result Http.Error String)
     | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
@@ -226,6 +234,18 @@ update msg model =
 
                 _ ->
                     ( { model | previousPage = Just model.currentPage, currentPage = SettingsPage }
+                    , Cmd.none
+                    )
+
+        ToggleNavbar toggle ->
+            case toggle of
+                Active ->
+                    ( { model | navbar = Inactive }
+                    , Cmd.none
+                    )
+
+                Inactive ->
+                    ( { model | navbar = Active }
                     , Cmd.none
                     )
 
@@ -292,72 +312,137 @@ getWeather owmWeatherList =
 
 view : Model -> Html Msg
 view model =
-    section [ class "section" ]
-        [ div [ class "container is-loading" ]
+    section [ class "hero" ]
+        [ viewNavBar model
+        , div [ class "container is-widescreen" ]
             [ h1 [ class "title" ]
                 [ text "Grabbing the Weather" ]
             , p [ class "subtitle " ]
                 [ text "Rise and shine!" ]
-            , case model.currentPage of
-                SearchPage ->
-                    viewSearchPage model
+            , div [ class "card" ]
+                [ case model.currentPage of
+                    SearchPage ->
+                        viewSearchPage model
 
-                ResultPage ->
-                    viewResultPage model
+                    ResultPage ->
+                        viewResultPage model
 
-                SettingsPage ->
-                    viewSettingsPage model
+                    SettingsPage ->
+                        viewSettingsPage model
+                ]
             , div [ class "box" ]
-                [ button
-                    [ class "button"
-                    , onClick ToggleSettings
-                    ]
-                    [ span [ class "fa fa-cog" ] []
-                    , text "Settings"
+                [ div
+                    [ class "field" ]
+                    [ button
+                        [ class "button is-large"
+                        , onClick ToggleSettings
+                        ]
+                        [ span [ class "icon is-large is-right" ]
+                            [ i [ class "fa fa-cog" ] []
+                            ]
+                        ]
                     ]
                 ]
             ]
         ]
 
 
+viewNavBar : Model -> Html Msg
+viewNavBar model =
+    let
+        navBarStatus =
+            case model.navbar of
+                Active ->
+                    " is-active"
+
+                Inactive ->
+                    ""
+    in
+    nav [ class "navbar is-fixed-top" ]
+        [ div [ class "navbar-brand" ]
+            [ div [ class ("navbar-burger" ++ navBarStatus), onClick (ToggleNavbar model.navbar) ]
+                [ span [] []
+                , span [] []
+                , span [] []
+                ]
+            ]
+        , div [ class ("navbar-menu" ++ navBarStatus) ]
+            [ div [ class "navbar-start" ]
+                [ div [ class "navbar-item" ]
+                    [ div [ class "" ]
+                        [ p [ class "columns is-mobile buttons are-medium" ]
+                            [ div [ class "column" ]
+                                [ navButton "°C" (model.unit == Celsius) (SwitchTo Celsius) ]
+                            , div [ class "column" ]
+                                [ navButton "°F" (model.unit == Fahrenheit) (SwitchTo Fahrenheit) ]
+                            , div [ class "column" ]
+                                [ navButton "K" (model.unit == Kelvin) (SwitchTo Kelvin) ]
+                            ]
+                        ]
+                    ]
+                ]
+            , div [ class "navbar-end" ]
+                [ div [ class "navbar-item" ]
+                    [ div [ class "field" ]
+                        [ p [ class "control has-icons-left is-expanded" ]
+                            [ span [ class "select is-fullwidth" ]
+                                [ select [ onInput SetTimeZone ]
+                                    (viewSelectOptions model.zonename TimeZone.zones)
+                                ]
+                            , span [ class "icon is-left" ]
+                                [ i [ class "fas fa-clock" ] [] ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+
+navButton : String -> Bool -> Msg -> Html Msg
+navButton buttonText isActive msg =
+    let
+        buttonStatus =
+            case isActive of
+                True ->
+                    "button is-success"
+
+                False ->
+                    "button"
+    in
+    button [ class buttonStatus, onClick msg ] [ text buttonText ]
+
+
 viewSettingsPage : Model -> Html Msg
 viewSettingsPage model =
-    div [ class "card" ]
-        [ h1 [ class "card-header level-item" ]
-            [ text "Settings Page" ]
-        , div [ class "card-content" ]
-            [ div [ class "box" ]
-                [ viewRadioTemperatureUnit model
-                ]
-            , div [ class "box" ]
-                [ viewSelectTimeZone model
-                ]
+    div [ class "card-content" ]
+        [ div [ class "box" ]
+            [ viewRadioTemperatureUnit model
+            ]
+        , div [ class "box" ]
+            [ viewSelectTimeZone model
             ]
         ]
 
 
 viewSearchPage : Model -> Html Msg
 viewSearchPage model =
-    div [ class "card" ]
-        [ h1 [ class "card-header level-item" ]
-            [ text "Search Page" ]
-        , div [ class "card-content" ]
-            [ div [ class "box" ]
-                [ h3 [ class "subtitle" ] [ text "Where are you at?" ]
-                , div [ class "field has-addons" ]
-                    [ div [ class "control is-expanded" ]
-                        [ input [ class "input is-large", value model.location, placeholder "Location", onInput ChangeLocation ] []
-                        ]
-                    , div [ class "control" ]
-                        [ button [ class "button is-large is-info", onClick ShowResults, disabled (String.length model.location == 0) ]
-                            [ span [ class "icon is-large is-right" ]
-                                [ i [ class "fa fa-globe" ] []
-                                ]
+    div [ class "card-content" ]
+        [ div [ class "box" ]
+            [ h3 [ class "subtitle" ] [ text "Where are you at?" ]
+            , div [ class "field has-addons" ]
+                [ div [ class "control is-expanded" ]
+                    [ input [ class "input is-large", value model.location, placeholder "Location", onInput ChangeLocation ] []
+                    ]
+                , div [ class "control" ]
+                    [ button [ class "button is-large is-info", onClick ShowResults, disabled (String.length model.location == 0) ]
+                        [ span [ class "icon is-large is-right" ]
+                            [ i [ class "fa fa-globe" ] []
                             ]
                         ]
                     ]
-                , viewSearchError model
                 ]
+            , viewSearchError model
             ]
         ]
 
@@ -374,10 +459,8 @@ viewSearchError model =
 
 viewResultPage : Model -> Html Msg
 viewResultPage model =
-    div [ class "card" ]
-        [ h1 [ class "card-header level-item" ]
-            [ text "Results Page" ]
-        , case model.status of
+    div []
+        [ case model.status of
             Success data ->
                 viewResultWeatherData model data
 
