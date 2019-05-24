@@ -29,6 +29,7 @@ type alias Model =
     , unit : Unit
     , timezone : Time.Zone
     , zonename : String
+    , dayOrNight : DayOrNight
     }
 
 
@@ -60,12 +61,18 @@ type Page
     | SettingsPage
 
 
+type DayOrNight
+    = Day
+    | Night
+
+
 type alias OwmData =
     { weather : List OwmWeather
     , main : OwmMain
     , sys : OwmSys
     , wind : Maybe OwmWind
     , name : String
+    , dt : Int
     }
 
 
@@ -110,6 +117,7 @@ init _ =
       , unit = Celsius
       , timezone = Time.utc
       , zonename = "UTC"
+      , dayOrNight = Day
       }
     , TimeZone.getZone |> Task.attempt ReceiveTimeZone
     )
@@ -127,6 +135,7 @@ owmDataDecoder =
         |> required "sys" owmSysDecoder
         |> required "wind" (nullable owmWindDecoder)
         |> required "name" Decode.string
+        |> required "dt" int
 
 
 owmWeatherListDecoder : Decoder (List OwmWeather)
@@ -258,7 +267,9 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | status = Success data, currentPage = ResultPage }, Cmd.none )
+                            ( { model | status = Success data, currentPage = ResultPage, dayOrNight = getDayOrNight data }
+                            , Cmd.none
+                            )
 
                         Err _ ->
                             ( { model | status = Failure }, Cmd.none )
@@ -304,6 +315,15 @@ getWeather owmWeatherList =
 
         Just owmWeather ->
             owmWeather
+
+
+getDayOrNight : OwmData -> DayOrNight
+getDayOrNight owmData =
+    if (owmData.sys.sunrise < owmData.dt) && (owmData.dt < owmData.sys.sunset) then
+        Day
+
+    else
+        Night
 
 
 
@@ -480,7 +500,7 @@ viewResultWeatherData model data =
             getWeather data.weather
     in
     div [ class "box" ]
-        [ viewWeatherCatchPhrase weatherData
+        [ viewWeatherCatchPhrase model weatherData
         , div [ class "level-item" ]
             [ table [ class "table is-hoverable is-striped" ]
                 [ thead []
@@ -517,23 +537,41 @@ viewResultWeatherData model data =
         ]
 
 
-viewWeatherCatchPhrase : OwmWeather -> Html Msg
-viewWeatherCatchPhrase weather =
+viewWeatherCatchPhrase : Model -> OwmWeather -> Html Msg
+viewWeatherCatchPhrase model weather =
+    let
+        symbol =
+            if model.dayOrNight == Day then
+                "sun"
+
+            else
+                "moon"
+    in
     let
         ( icon, catchphrase ) =
-            if weather.id > 800 then
+            if weather.id > 802 then
                 ( "cloud"
+                , "I'm sure there's a silver lining."
+                )
+
+            else if weather.id > 800 then
+                ( "cloud-" ++ symbol
                 , "What's a few clouds, ey?"
                 )
 
             else if weather.id == 800 then
-                ( "sun"
+                ( symbol
                 , "Clear blue sky!"
                 )
 
-            else if weather.id >= 700 then
+            else if weather.id >= 730 then
                 ( "cloud-meatball"
                 , "The skies are falling!"
+                )
+
+            else if weather.id >= 700 then
+                ( "smog"
+                , "Sight ain't so great today!"
                 )
 
             else if weather.id >= 600 then
@@ -547,7 +585,7 @@ viewWeatherCatchPhrase weather =
                 )
 
             else if weather.id >= 300 then
-                ( "cloud-rain"
+                ( "cloud-" ++ symbol ++ "rain"
                 , "It's not rain, more like a curative mist."
                 )
 
