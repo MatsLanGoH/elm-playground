@@ -9,7 +9,7 @@
 - [x] Displays sunrise and sunset times.
 - [x] Displays humidity and weather description
 - [x] Displays wind direction in human-readable language
-- [ ] Has a scheme that says whether or not it's a nice day (e.g. if it's 25 degrees celsius and clear skies, it should be a nice day)
+- [x] Has a scheme that says whether or not it's a nice day (e.g. if it's 25 degrees celsius and clear skies, it should be a nice day)
 - [x] Displays temperature in both Celsius and Fahrenheit
 - [x] Displays whether a person needs a coat or an umbrella
 

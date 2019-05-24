@@ -66,6 +66,13 @@ type DayOrNight
     | Night
 
 
+type KindOfDay
+    = Fantastic
+    | Normal
+    | Hot
+    | Cold
+
+
 type alias OwmData =
     { weather : List OwmWeather
     , main : OwmMain
@@ -326,6 +333,28 @@ getDayOrNight owmData =
         Night
 
 
+getKindOfDay : OwmData -> KindOfDay
+getKindOfDay owmData =
+    let
+        celsius =
+            kelvinToCelsius owmData.main.temp
+
+        weather =
+            getWeather owmData.weather
+    in
+    if celsius < 12 && weather.id < 800 then
+        Cold
+
+    else if celsius >= 35 then
+        Hot
+
+    else if celsius > 20 && weather.id > 800 then
+        Fantastic
+
+    else
+        Normal
+
+
 
 ---- VIEW ----
 
@@ -500,7 +529,7 @@ viewResultWeatherData model data =
             getWeather data.weather
     in
     div [ class "box" ]
-        [ viewWeatherCatchPhrase model weatherData
+        [ viewWeatherCatchPhrase model weatherData data
         , div [ class "level-item" ]
             [ table [ class "table is-hoverable is-striped" ]
                 [ thead []
@@ -537,8 +566,8 @@ viewResultWeatherData model data =
         ]
 
 
-viewWeatherCatchPhrase : Model -> OwmWeather -> Html Msg
-viewWeatherCatchPhrase model weather =
+viewWeatherCatchPhrase : Model -> OwmWeather -> OwmData -> Html Msg
+viewWeatherCatchPhrase model weather data =
     let
         symbol =
             if model.dayOrNight == Day then
@@ -546,8 +575,21 @@ viewWeatherCatchPhrase model weather =
 
             else
                 "moon"
-    in
-    let
+
+        kindOfDayPhrase =
+            case getKindOfDay data of
+                Normal ->
+                    ""
+
+                Cold ->
+                    "Keep warm!"
+
+                Hot ->
+                    "Stay hydrated!"
+
+                Fantastic ->
+                    "Enjoy your day!"
+
         ( icon, catchphrase ) =
             if weather.id > 802 then
                 ( "cloud"
@@ -603,7 +645,8 @@ viewWeatherCatchPhrase model weather =
         [ p []
             [ i [ class ("fa fa-" ++ icon) ] []
             ]
-        , text catchphrase
+        , p [] [ text catchphrase ]
+        , p [] [ text kindOfDayPhrase ]
         ]
 
 
