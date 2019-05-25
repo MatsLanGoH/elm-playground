@@ -2,7 +2,7 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
-import Convert exposing (humanTimeHMS, kelvinToCelsius, kelvinToFahrenheit)
+import Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -539,6 +539,10 @@ viewResultWeatherData model data =
                         [ th [] [ text "Location" ]
                         , th [] [ data.name |> text ]
                         ]
+                    , tr []
+                        [ th [] [ text "Date" ]
+                        , th [] [ humanTimeMD data.dt model.timezone |> text ]
+                        ]
                     ]
                 , tbody []
                     [ tr []
@@ -572,17 +576,14 @@ viewResultForecast : Html Msg
 viewResultForecast =
     div [ class "box" ]
         [ div [ class "title" ]
-            [ span [ class "icon is-left" ]
-                [ i [ class "fa fa-rainbow" ] []
-                , text "Weekly forecast"
-                ]
+            [ text "Weekly forecast"
             ]
         , div [ class "level-item" ]
-            [ table [ class "table is-hoverable is-striped" ]
+            [ table [ class "table is-fullwidth is-hoverable is-striped" ]
                 [ thead []
                     [ tr []
                         [ th [] [ text "Date" ]
-                        , th [] [ text "Weather "]
+                        , th [] [ text "Weather " ]
                         ]
                     ]
                 , tbody []
