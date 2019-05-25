@@ -493,6 +493,7 @@ viewSearchPage model =
                 ]
             , viewSearchError model
             ]
+        , viewResultForecast
         ]
 
 
@@ -515,6 +516,7 @@ viewResultPage model =
 
             _ ->
                 Html.text ""
+        , viewResultForecast
         , div [ class "box" ]
             [ button [ class "button", onClick ShowSearch ]
                 [ text "New search" ]
@@ -560,6 +562,34 @@ viewResultWeatherData model data =
                         , td [] [ humanTimeHMS data.sys.sunset model.timezone model.zonename |> text ]
                         ]
                     , trDisplayWind data.wind
+                    ]
+                ]
+            ]
+        ]
+
+
+viewResultForecast : Html Msg
+viewResultForecast =
+    div [ class "box" ]
+        [ div [ class "title" ]
+            [ span [ class "icon is-left" ]
+                [ i [ class "fa fa-rainbow" ] []
+                , text "Weekly forecast"
+                ]
+            ]
+        , div [ class "level-item" ]
+            [ table [ class "table is-hoverable is-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [] [ text "Date" ]
+                        , th [] [ text "Weather "]
+                        ]
+                    ]
+                , tbody []
+                    [ tr []
+                        [ td [] [ text "Tomorrow" ]
+                        , td [] [ text "25C / Rain" ]
+                        ]
                     ]
                 ]
             ]
