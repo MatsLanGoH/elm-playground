@@ -613,7 +613,7 @@ viewResultWeatherData model data =
                 , tbody []
                     [ tr []
                         [ td [] [ text "Temperature" ]
-                        , td [] [ viewTemperature model data |> text ]
+                        , td [] [ viewTemperature model data.main |> text ]
                         ]
                     , tr []
                         [ td [] [ text "Weather" ]
@@ -660,6 +660,24 @@ viewResultForecast =
                     ]
                 ]
             ]
+        ]
+
+
+viewForecastRow : Model -> OwmForecast -> Html Msg
+viewForecastRow model forecast =
+    let
+        weather =
+            getWeather forecast.weather
+
+        temperatureString =
+            viewTemperature model forecast.main
+
+        weatherText =
+            temperatureString ++ " / " ++ weather.main
+    in
+    tr []
+        [ td [] [ text <| humanTimeMD forecast.dt model.timezone ]
+        , td [] [ text <| weatherText ]
         ]
 
 
@@ -797,17 +815,17 @@ selectOption check val =
     option [ value val, selected (check == val) ] [ text val ]
 
 
-viewTemperature : Model -> OwmData -> String
-viewTemperature model data =
+viewTemperature : Model -> OwmMain -> String
+viewTemperature model owmMain =
     case model.unit of
         Fahrenheit ->
-            "°F" |> (++) (data.main.temp |> kelvinToFahrenheit |> String.fromInt)
+            "°F" |> (++) (owmMain.temp |> kelvinToFahrenheit |> String.fromInt)
 
         Celsius ->
-            "°C" |> (++) (data.main.temp |> kelvinToCelsius |> String.fromInt)
+            "°C" |> (++) (owmMain.temp |> kelvinToCelsius |> String.fromInt)
 
         Kelvin ->
-            "K" |> (++) (data.main.temp |> String.fromFloat)
+            "K" |> (++) (owmMain.temp |> String.fromFloat)
 
 
 trDisplayWind : Maybe OwmWind -> Html Msg
