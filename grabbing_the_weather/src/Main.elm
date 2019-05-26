@@ -25,7 +25,8 @@ type alias Model =
     , previousPage : Maybe Page
     , navbar : Toggle
     , location : String
-    , status : Status
+    , weatherData : WeatherDataStatus
+    , forecastData : ForecastDataStatus
     , unit : Unit
     , timezone : Time.Zone
     , zonename : String
@@ -39,10 +40,16 @@ type Unit
     | Kelvin
 
 
-type Status
-    = Awaiting
-    | Failure
-    | Success OwmData
+type WeatherDataStatus
+    = AwaitingWeatherData
+    | FailureWeatherData
+    | SuccessWeatherData OwmData
+
+
+type ForecastDataStatus
+    = AwaitingForecastData
+    | FailureForecastData
+    | SuccessForecastData (List OwmForecast)
 
 
 type Toggle
@@ -52,7 +59,7 @@ type Toggle
 
 type TZ
     = TzFailure TimeZone.Error
-    | TzSuccess String Time.Zone
+    | TzSuccessWeatherData String Time.Zone
 
 
 type Page
@@ -80,6 +87,14 @@ type alias OwmData =
     , wind : Maybe OwmWind
     , name : String
     , dt : Int
+    }
+
+
+type alias OwmForecast =
+    { dt : Int
+    , main : OwmMain
+    , weather : List OwmWeather
+    , wind : Maybe OwmWind
     }
 
 
@@ -120,7 +135,8 @@ init _ =
       , previousPage = Nothing
       , navbar = Inactive
       , location = ""
-      , status = Awaiting
+      , weatherData = AwaitingWeatherData
+      , forecastData = AwaitingForecastData
       , unit = Celsius
       , timezone = Time.utc
       , zonename = "UTC"
@@ -185,6 +201,20 @@ owmSysDecoder =
         |> required "sunset" int
 
 
+owmForecastListDecoder : Decoder (List OwmForecast)
+owmForecastListDecoder =
+    Decode.list owmForecastDecoder
+
+
+owmForecastDecoder : Decoder OwmForecast
+owmForecastDecoder =
+    Decode.succeed OwmForecast
+        |> required "dt" int
+        |> required "main" owmMainDecoder
+        |> required "weather" owmWeatherListDecoder
+        |> required "wind" (nullable owmWindDecoder)
+
+
 
 ---- UPDATE ----
 
@@ -197,7 +227,8 @@ type Msg
     | ShowSearch
     | ToggleNavbar Toggle
     | ToggleSettings
-    | GotOwmJson (Result Http.Error String)
+    | GotOwmDataJson (Result Http.Error String)
+    | GotOwmForecastJson (Result Http.Error String)
     | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
     | SetTimeZone String
 
@@ -219,11 +250,11 @@ update msg model =
             ( model
             , let
                 resultUrl =
-                    crossOrigin owmApiBaseUrl [] [ U.string "q" model.location, U.string "appid" owmApiKey ]
+                    crossOrigin owmApiBaseUrl [ "weather" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
               in
               Http.get
                 { url = resultUrl
-                , expect = Http.expectString GotOwmJson
+                , expect = Http.expectString GotOwmDataJson
                 }
             )
 
@@ -265,7 +296,7 @@ update msg model =
                     , Cmd.none
                     )
 
-        GotOwmJson result ->
+        GotOwmDataJson result ->
             case result of
                 Ok fullJson ->
                     let
@@ -274,15 +305,41 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | status = Success data, currentPage = ResultPage, dayOrNight = getDayOrNight data }
+                            ( { model | weatherData = SuccessWeatherData data, currentPage = ResultPage, dayOrNight = getDayOrNight data }
+                            , let
+                                resultUrl =
+                                    crossOrigin owmApiBaseUrl [ "forecast" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
+                              in
+                              Http.get
+                                { url = resultUrl
+                                , expect = Http.expectString GotOwmForecastJson
+                                }
+                            )
+
+                        Err _ ->
+                            ( { model | weatherData = FailureWeatherData }, Cmd.none )
+
+                Err _ ->
+                    ( { model | weatherData = FailureWeatherData }, Cmd.none )
+
+        GotOwmForecastJson result ->
+            case result of
+                Ok fullJson ->
+                    let
+                        owmResponse =
+                            decodeString owmForecastListDecoder fullJson
+                    in
+                    case owmResponse of
+                        Ok data ->
+                            ( { model | forecastData = SuccessForecastData data }
                             , Cmd.none
                             )
 
                         Err _ ->
-                            ( { model | status = Failure }, Cmd.none )
+                            ( { model | forecastData = FailureForecastData }, Cmd.none )
 
                 Err _ ->
-                    ( { model | status = Failure }, Cmd.none )
+                    ( { model | forecastData = FailureForecastData }, Cmd.none )
 
         ReceiveTimeZone result ->
             ( case result of
@@ -399,7 +456,7 @@ view model =
 viewNavBar : Model -> Html Msg
 viewNavBar model =
     let
-        navBarStatus =
+        navBarWeatherDataStatus =
             case model.navbar of
                 Active ->
                     " is-active"
@@ -409,13 +466,13 @@ viewNavBar model =
     in
     nav [ class "navbar is-fixed-top" ]
         [ div [ class "navbar-brand" ]
-            [ div [ class ("navbar-burger" ++ navBarStatus), onClick (ToggleNavbar model.navbar) ]
+            [ div [ class ("navbar-burger" ++ navBarWeatherDataStatus), onClick (ToggleNavbar model.navbar) ]
                 [ span [] []
                 , span [] []
                 , span [] []
                 ]
             ]
-        , div [ class ("navbar-menu" ++ navBarStatus) ]
+        , div [ class ("navbar-menu" ++ navBarWeatherDataStatus) ]
             [ div [ class "navbar-start" ]
                 [ div [ class "navbar-item" ]
                     [ div [ class "" ]
@@ -451,7 +508,7 @@ viewNavBar model =
 navButton : String -> Bool -> Msg -> Html Msg
 navButton buttonText isActive msg =
     let
-        buttonStatus =
+        buttonWeatherDataStatus =
             case isActive of
                 True ->
                     "button is-success"
@@ -459,7 +516,7 @@ navButton buttonText isActive msg =
                 False ->
                     "button"
     in
-    button [ class buttonStatus, onClick msg ] [ text buttonText ]
+    button [ class buttonWeatherDataStatus, onClick msg ] [ text buttonText ]
 
 
 viewSettingsPage : Model -> Html Msg
@@ -499,8 +556,8 @@ viewSearchPage model =
 
 viewSearchError : Model -> Html Msg
 viewSearchError model =
-    case model.status of
-        Failure ->
+    case model.weatherData of
+        FailureWeatherData ->
             p [ class "text-danger" ] [ text "Location not found." ]
 
         _ ->
@@ -510,8 +567,8 @@ viewSearchError model =
 viewResultPage : Model -> Html Msg
 viewResultPage model =
     div []
-        [ case model.status of
-            Success data ->
+        [ case model.weatherData of
+            SuccessWeatherData data ->
                 viewResultWeatherData model data
 
             _ ->
