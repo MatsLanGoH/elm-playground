@@ -204,12 +204,6 @@ owmForecastListDecoder =
     Decode.field "list" (Decode.list owmForecastDecoder)
 
 
-
--- |> required "list" (Decode.list owmForecastDecoder)
--- |> Decode.list owmForecastDecoder
--- |> required "list" (Decode.list owmForecastDecoder)
-
-
 owmForecastDecoder : Decoder OwmForecast
 owmForecastDecoder =
     Decode.succeed OwmForecast
