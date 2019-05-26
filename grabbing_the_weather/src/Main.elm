@@ -225,6 +225,7 @@ type Msg
     | SwitchTo Unit
     | ShowResults
     | ShowSearch
+    | TogglePage Page
     | ToggleNavbar Toggle
     | ToggleSettings
     | GotOwmDataJson (Result Http.Error String)
@@ -259,9 +260,8 @@ update msg model =
             )
 
         ShowSearch ->
-            ( { model | currentPage = SearchPage, location = "" }
-            , Cmd.none
-            )
+            { model | location = "" }
+                |> update (TogglePage SearchPage)
 
         ToggleSettings ->
             case model.currentPage of
@@ -296,6 +296,11 @@ update msg model =
                     , Cmd.none
                     )
 
+        TogglePage newPage ->
+            ( { model | currentPage = newPage }
+            , Cmd.none
+            )
+
         GotOwmDataJson result ->
             case result of
                 Ok fullJson ->
@@ -305,7 +310,7 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | weatherData = SuccessWeatherData data, currentPage = ResultPage, dayOrNight = getDayOrNight data }
+                            ( { model | weatherData = SuccessWeatherData data, dayOrNight = getDayOrNight data }
                             , let
                                 resultUrl =
                                     crossOrigin owmApiBaseUrl [ "forecast" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
@@ -331,12 +336,12 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | forecastData = SuccessForecastData data }
-                            , Cmd.none
-                            )
+                            { model | forecastData = SuccessForecastData data }
+                                |> update (TogglePage ResultPage)
 
                         Err _ ->
-                            ( { model | forecastData = FailureForecastData }, Cmd.none )
+                            { model | forecastData = FailureForecastData }
+                                |> update (TogglePage ResultPage)
 
                 Err _ ->
                     ( { model | forecastData = FailureForecastData }, Cmd.none )
@@ -550,7 +555,6 @@ viewSearchPage model =
                 ]
             , viewSearchError model
             ]
-        , viewResultForecast
         ]
 
 
@@ -573,7 +577,12 @@ viewResultPage model =
 
             _ ->
                 Html.text ""
-        , viewResultForecast
+        , case model.forecastData of
+            SuccessForecastData forecasts ->
+                viewResultForecast
+
+            _ ->
+                Html.text ""
         , div [ class "box" ]
             [ button [ class "button", onClick ShowSearch ]
                 [ text "New search" ]
