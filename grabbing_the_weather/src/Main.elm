@@ -27,6 +27,7 @@ type alias Model =
     , location : String
     , weatherData : WeatherDataStatus
     , forecastData : ForecastDataStatus
+    , error : String
     , unit : Unit
     , timezone : Time.Zone
     , zonename : String
@@ -49,7 +50,7 @@ type WeatherDataStatus
 type ForecastDataStatus
     = AwaitingForecastData
     | FailureForecastData
-    | SuccessForecastData (List OwmForecast)
+    | SuccessForecastData OwmForecastList
 
 
 type Toggle
@@ -90,6 +91,11 @@ type alias OwmData =
     }
 
 
+type alias OwmForecastList =
+    { list : List OwmForecast
+    }
+
+
 type alias OwmForecast =
     { dt : Int
     , main : OwmMain
@@ -108,7 +114,6 @@ type alias OwmWeather =
 
 type alias OwmMain =
     { temp : Float
-    , pressure : Int
     , humidity : Int
     }
 
@@ -137,6 +142,7 @@ init _ =
       , location = ""
       , weatherData = AwaitingWeatherData
       , forecastData = AwaitingForecastData
+      , error = ""
       , unit = Celsius
       , timezone = Time.utc
       , zonename = "UTC"
@@ -179,7 +185,6 @@ owmMainDecoder : Decoder OwmMain
 owmMainDecoder =
     Decode.succeed OwmMain
         |> required "temp" float
-        |> required "pressure" int
         |> required "humidity" int
 
 
@@ -201,9 +206,10 @@ owmSysDecoder =
         |> required "sunset" int
 
 
-owmForecastListDecoder : Decoder (List OwmForecast)
+owmForecastListDecoder : Decoder OwmForecastList
 owmForecastListDecoder =
-    Decode.list owmForecastDecoder
+    Decode.succeed OwmForecastList
+        |> required "list" (Decode.list owmForecastDecoder)
 
 
 owmForecastDecoder : Decoder OwmForecast
@@ -260,8 +266,9 @@ update msg model =
             )
 
         ShowSearch ->
-            { model | location = "" }
-                |> update (TogglePage SearchPage)
+            ( { model | currentPage = SearchPage, location = "" }
+            , Cmd.none
+            )
 
         ToggleSettings ->
             case model.currentPage of
@@ -339,8 +346,8 @@ update msg model =
                             { model | forecastData = SuccessForecastData data }
                                 |> update (TogglePage ResultPage)
 
-                        Err _ ->
-                            { model | forecastData = FailureForecastData }
+                        Err error ->
+                            { model | forecastData = FailureForecastData, error = Decode.errorToString error }
                                 |> update (TogglePage ResultPage)
 
                 Err _ ->
@@ -579,10 +586,10 @@ viewResultPage model =
                 Html.text ""
         , case model.forecastData of
             SuccessForecastData forecasts ->
-                viewResultForecast
+                viewResultForecast model forecasts
 
             _ ->
-                Html.text ""
+                Html.text model.error
         , div [ class "box" ]
             [ button [ class "button", onClick ShowSearch ]
                 [ text "New search" ]
@@ -638,8 +645,8 @@ viewResultWeatherData model data =
         ]
 
 
-viewResultForecast : Html Msg
-viewResultForecast =
+viewResultForecast : Model -> OwmForecastList -> Html Msg
+viewResultForecast model forecasts =
     div [ class "box" ]
         [ div [ class "title" ]
             [ text "Weekly forecast"
@@ -653,30 +660,32 @@ viewResultForecast =
                         ]
                     ]
                 , tbody []
-                    [ tr []
-                        [ td [] [ text "Tomorrow" ]
-                        , td [] [ text "25C / Rain" ]
-                        ]
-                    ]
+                    (viewForecastTable forecasts)
                 ]
             ]
         ]
 
 
-viewForecastRow : Model -> OwmForecast -> Html Msg
-viewForecastRow model forecast =
+viewForecastTable : OwmForecastList -> List (Html Msg)
+viewForecastTable forecasts =
+    List.map viewForecastRow forecasts.list
+
+
+viewForecastRow : OwmForecast -> Html Msg
+viewForecastRow forecast =
     let
         weather =
             getWeather forecast.weather
 
         temperatureString =
-            viewTemperature model forecast.main
+            -- viewTemperature model forecast.main
+            "22"
 
         weatherText =
             temperatureString ++ " / " ++ weather.main
     in
     tr []
-        [ td [] [ text <| humanTimeMD forecast.dt model.timezone ]
+        [ td [] [ text <| humanTimeMD forecast.dt Time.utc ] -- model.timezone ]
         , td [] [ text <| weatherText ]
         ]
 
