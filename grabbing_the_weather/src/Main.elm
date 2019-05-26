@@ -1,5 +1,6 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
+import Array
 import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
 import Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
@@ -130,7 +131,7 @@ type alias OwmSys =
 
 type alias OwmWind =
     { speed : Float
-    , degree : Float
+    , degree : Maybe Float
     }
 
 
@@ -192,7 +193,7 @@ owmWindDecoder : Decoder OwmWind
 owmWindDecoder =
     Decode.succeed OwmWind
         |> required "speed" float
-        |> required "deg" float
+        |> optional "deg" (nullable float) Nothing
 
 
 owmSysDecoder : Decoder OwmSys
@@ -328,8 +329,8 @@ update msg model =
                                 }
                             )
 
-                        Err _ ->
-                            ( { model | weatherData = FailureWeatherData }, Cmd.none )
+                        Err error ->
+                            ( { model | weatherData = FailureWeatherData, error = Decode.errorToString error }, Cmd.none )
 
                 Err _ ->
                     ( { model | weatherData = FailureWeatherData }, Cmd.none )
@@ -569,7 +570,7 @@ viewSearchError : Model -> Html Msg
 viewSearchError model =
     case model.weatherData of
         FailureWeatherData ->
-            p [ class "text-danger" ] [ text "Location not found." ]
+            p [ class "text-danger" ] [ text model.error ]
 
         _ ->
             text ""
@@ -606,7 +607,7 @@ viewResultWeatherData model data =
     div [ class "box" ]
         [ viewWeatherCatchPhrase model weatherData data
         , div [ class "level-item" ]
-            [ table [ class "table is-hoverable is-striped" ]
+            [ table [ class "table is-hoverable is-striped is-fullwidth" ]
                 [ thead []
                     [ tr []
                         [ th [] [ text "Location" ]
@@ -660,32 +661,68 @@ viewResultForecast model forecasts =
                         ]
                     ]
                 , tbody []
-                    (viewForecastTable forecasts)
+                    (viewForecastTable forecasts model)
                 ]
             ]
         ]
 
 
-viewForecastTable : OwmForecastList -> List (Html Msg)
-viewForecastTable forecasts =
-    List.map viewForecastRow forecasts.list
+viewForecastTable : OwmForecastList -> Model -> List (Html Msg)
+viewForecastTable forecasts model =
+    -- TODO: There's gotta be a better way to map a list and a single element?
+    let
+        forecastItems =
+            forecasts.list
+
+        indexForecastItems =
+            List.indexedMap Tuple.pair forecasts.list
+
+        length =
+            List.length forecastItems
+    in
+    List.repeat length model
+        |> List.map2 viewForecastRow (List.filterMap (nthElement 8) indexForecastItems)
 
 
-viewForecastRow : OwmForecast -> Html Msg
-viewForecastRow forecast =
+modulo : Int -> Int -> Bool
+modulo n mod =
+    case n of
+        0 ->
+            True
+
+        _ ->
+            case modBy mod n of
+                0 ->
+                    True
+
+                _ ->
+                    False
+
+
+nthElement : Int -> ( Int, OwmForecast ) -> Maybe OwmForecast
+nthElement nth ( idx, forecast ) =
+    case modulo idx nth of
+        True ->
+            Just forecast
+
+        False ->
+            Nothing
+
+
+viewForecastRow : OwmForecast -> Model -> Html Msg
+viewForecastRow forecast model =
     let
         weather =
             getWeather forecast.weather
 
         temperatureString =
-            -- viewTemperature model forecast.main
-            "22"
+            viewTemperature model forecast.main
 
         weatherText =
             temperatureString ++ " / " ++ weather.main
     in
     tr []
-        [ td [] [ text <| humanTimeMD forecast.dt Time.utc ] -- model.timezone ]
+        [ td [] [ text <| humanTimeMD forecast.dt model.timezone ]
         , td [] [ text <| weatherText ]
         ]
 
@@ -854,35 +891,42 @@ viewWind : OwmWind -> String
 viewWind owmWind =
     let
         direction =
-            if owmWind.degree >= 348.75 then
-                "N"
+            case owmWind.degree of
+                Nothing ->
+                    ""
 
-            else if owmWind.degree >= 281.25 then
-                "NW"
+                Just degree ->
+                    " from "
+                        ++ (if degree >= 348.75 then
+                                "N"
 
-            else if owmWind.degree >= 236.25 then
-                "W"
+                            else if degree >= 281.25 then
+                                "NW"
 
-            else if owmWind.degree >= 191.25 then
-                "SW"
+                            else if degree >= 236.25 then
+                                "W"
 
-            else if owmWind.degree >= 146.25 then
-                "S"
+                            else if degree >= 191.25 then
+                                "SW"
 
-            else if owmWind.degree >= 101.25 then
-                "SE"
+                            else if degree >= 146.25 then
+                                "S"
 
-            else if owmWind.degree >= 56.25 then
-                "E"
+                            else if degree >= 101.25 then
+                                "SE"
 
-            else if owmWind.degree >= 11.25 then
-                "NE"
+                            else if degree >= 56.25 then
+                                "E"
 
-            else
-                "N"
+                            else if degree >= 11.25 then
+                                "NE"
+
+                            else
+                                "N"
+                           )
     in
     String.fromFloat owmWind.speed
-        ++ "m/s from "
+        ++ "m/s"
         ++ direction
 
 
