@@ -1,17 +1,16 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
-import Array
 import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
 import Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
 import Dict exposing (Dict)
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
+import Html exposing (Html, button, div, h1, h3, i, input, nav, option, p, section, select, span, table, tbody, td, text, th, thead, tr)
+import Html.Attributes exposing (class, disabled, placeholder, selected, value)
+import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, float, int, nullable, string)
 import Json.Decode.Pipeline exposing (optional, required)
-import Task exposing (Task)
+import Task
 import Time
 import TimeZone
 import Url.Builder as U exposing (crossOrigin, string)
@@ -59,15 +58,9 @@ type Toggle
     | Inactive
 
 
-type TZ
-    = TzFailure TimeZone.Error
-    | TzSuccessWeatherData String Time.Zone
-
-
 type Page
     = SearchPage
     | ResultPage
-    | SettingsPage
 
 
 type DayOrNight
@@ -93,8 +86,7 @@ type alias OwmData =
 
 
 type alias OwmForecastList =
-    { list : List OwmForecast
-    }
+    List OwmForecast
 
 
 type alias OwmForecast =
@@ -120,8 +112,8 @@ type alias OwmMain =
 
 
 type alias OwmSys =
-    { type_ : Int
-    , id_ : Int
+    { type_ : Maybe Int
+    , id_ : Maybe Int
     , message : Float
     , country : String
     , sunrise : Int
@@ -199,18 +191,23 @@ owmWindDecoder =
 owmSysDecoder : Decoder OwmSys
 owmSysDecoder =
     Decode.succeed OwmSys
-        |> required "type" int
-        |> required "id" int
+        |> optional "type" (nullable int) Nothing
+        |> optional "id" (nullable int) Nothing
         |> required "message" float
         |> required "country" Decode.string
         |> required "sunrise" int
         |> required "sunset" int
 
 
-owmForecastListDecoder : Decoder OwmForecastList
+owmForecastListDecoder : Decoder (List OwmForecast)
 owmForecastListDecoder =
-    Decode.succeed OwmForecastList
-        |> required "list" (Decode.list owmForecastDecoder)
+    Decode.field "list" (Decode.list owmForecastDecoder)
+
+
+
+-- |> required "list" (Decode.list owmForecastDecoder)
+-- |> Decode.list owmForecastDecoder
+-- |> required "list" (Decode.list owmForecastDecoder)
 
 
 owmForecastDecoder : Decoder OwmForecast
@@ -234,7 +231,6 @@ type Msg
     | ShowSearch
     | TogglePage Page
     | ToggleNavbar Toggle
-    | ToggleSettings
     | GotOwmDataJson (Result Http.Error String)
     | GotOwmForecastJson (Result Http.Error String)
     | ReceiveTimeZone (Result TimeZone.Error ( String, Time.Zone ))
@@ -270,27 +266,6 @@ update msg model =
             ( { model | currentPage = SearchPage, location = "" }
             , Cmd.none
             )
-
-        ToggleSettings ->
-            case model.currentPage of
-                SettingsPage ->
-                    let
-                        previous =
-                            case model.previousPage of
-                                Nothing ->
-                                    SearchPage
-
-                                Just page ->
-                                    page
-                    in
-                    ( { model | previousPage = Just SettingsPage, currentPage = previous }
-                    , Cmd.none
-                    )
-
-                _ ->
-                    ( { model | previousPage = Just model.currentPage, currentPage = SettingsPage }
-                    , Cmd.none
-                    )
 
         ToggleNavbar toggle ->
             case toggle of
@@ -359,7 +334,7 @@ update msg model =
                 Ok ( zoneName, zone ) ->
                     { model | timezone = zone, zonename = zoneName }
 
-                Err error ->
+                Err _ ->
                     { model | timezone = Time.utc }
             , Cmd.none
             )
@@ -445,22 +420,6 @@ view model =
 
                     ResultPage ->
                         viewResultPage model
-
-                    SettingsPage ->
-                        viewSettingsPage model
-                ]
-            , div [ class "box" ]
-                [ div
-                    [ class "field" ]
-                    [ button
-                        [ class "button is-large"
-                        , onClick ToggleSettings
-                        ]
-                        [ span [ class "icon is-large is-right" ]
-                            [ i [ class "fa fa-cog" ] []
-                            ]
-                        ]
-                    ]
                 ]
             ]
         ]
@@ -522,26 +481,13 @@ navButton : String -> Bool -> Msg -> Html Msg
 navButton buttonText isActive msg =
     let
         buttonWeatherDataStatus =
-            case isActive of
-                True ->
-                    "button is-success"
+            if isActive then
+                "button is-success"
 
-                False ->
-                    "button"
+            else
+                "button"
     in
     button [ class buttonWeatherDataStatus, onClick msg ] [ text buttonText ]
-
-
-viewSettingsPage : Model -> Html Msg
-viewSettingsPage model =
-    div [ class "card-content" ]
-        [ div [ class "box" ]
-            [ viewRadioTemperatureUnit model
-            ]
-        , div [ class "box" ]
-            [ viewSelectTimeZone model
-            ]
-        ]
 
 
 viewSearchPage : Model -> Html Msg
@@ -669,23 +615,19 @@ viewResultForecast model forecasts =
 
 viewForecastTable : OwmForecastList -> Model -> List (Html Msg)
 viewForecastTable forecasts model =
-    -- TODO: There's gotta be a better way to map a list and a single element?
     let
-        forecastItems =
-            forecasts.list
-
         indexForecastItems =
-            List.indexedMap Tuple.pair forecasts.list
+            List.indexedMap Tuple.pair forecasts
 
         length =
-            List.length forecastItems
+            List.length forecasts
     in
     List.repeat length model
-        |> List.map2 viewForecastRow (List.filterMap (nthElement 8) indexForecastItems)
+        |> List.map2 viewForecastRow (List.filterMap (isNthElement 8) indexForecastItems)
 
 
-modulo : Int -> Int -> Bool
-modulo n mod =
+isModuloOrZero : Int -> Int -> Bool
+isModuloOrZero n mod =
     case n of
         0 ->
             True
@@ -699,14 +641,13 @@ modulo n mod =
                     False
 
 
-nthElement : Int -> ( Int, OwmForecast ) -> Maybe OwmForecast
-nthElement nth ( idx, forecast ) =
-    case modulo idx nth of
-        True ->
-            Just forecast
+isNthElement : Int -> ( Int, a ) -> Maybe a
+isNthElement nth ( idx, element ) =
+    if isModuloOrZero idx nth then
+        Just element
 
-        False ->
-            Nothing
+    else
+        Nothing
 
 
 viewForecastRow : OwmForecast -> Model -> Html Msg
@@ -808,46 +749,6 @@ viewWeatherCatchPhrase model weather data =
             ]
         , p [] [ text catchphrase ]
         , p [] [ text kindOfDayPhrase ]
-        ]
-
-
-viewRadioTemperatureUnit : Model -> Html Msg
-viewRadioTemperatureUnit model =
-    div [ class "text-center" ]
-        [ h3 [ class "subtitle" ]
-            [ text "Choose temperature unit: " ]
-        , fieldset
-            []
-            [ radio "Celsius" (model.unit == Celsius) (SwitchTo Celsius)
-            , radio "Fahrenheit" (model.unit == Fahrenheit) (SwitchTo Fahrenheit)
-            , radio "Kelvin" (model.unit == Kelvin) (SwitchTo Kelvin)
-            ]
-        ]
-
-
-radio : String -> Bool -> Msg -> Html Msg
-radio value isChecked msg =
-    label [ class "radio" ]
-        [ input [ type_ "radio", name "unit", onClick msg, checked isChecked ] []
-        , text (" " ++ value)
-        ]
-
-
-viewSelectTimeZone : Model -> Html Msg
-viewSelectTimeZone model =
-    div [ class "text-center" ]
-        [ h3 [ class "subtitle" ]
-            [ text "Choose time zone: " ]
-        , div [ class "field" ]
-            [ p [ class "control has-icons-left is-expanded" ]
-                [ span [ class "select is-fullwidth" ]
-                    [ select [ onInput SetTimeZone ]
-                        (viewSelectOptions model.zonename TimeZone.zones)
-                    ]
-                , span [ class "icon is-left" ]
-                    [ i [ class "fas fa-globe" ] [] ]
-                ]
-            ]
         ]
 
 

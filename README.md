@@ -18,4 +18,4 @@ Implements solutions written in `Elm` for the following exercises from Brian P. 
 
 * **Working with External Services**
   * [x] #47 Who's in Space?
-  * [ ] #48: Grabbing the Weather
+  * [x] #48: Grabbing the Weather

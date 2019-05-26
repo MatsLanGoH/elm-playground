@@ -1,7 +1,6 @@
 module Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
 
-import Time exposing (Posix, Zone, toDay, toHour, toMinute, toMonth, toSecond, utc)
-import TimeZone
+import Time exposing (Posix, Zone, toDay, toHour, toMinute, toMonth, toSecond)
 
 
 

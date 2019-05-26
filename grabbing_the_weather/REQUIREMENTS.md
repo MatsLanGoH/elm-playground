@@ -18,3 +18,4 @@
 - [x] Allows users to select their timezone and adjust sunrise/sunset times accordingly.
 - [x] Includes a setting screen to toggle Temperature units, and Timezones
 - [x] Shows sun/moon icons depending on whether or not it is day or night at a given location.
+- [x] Displays a forecast for the next 5 days.
