@@ -13,7 +13,7 @@ import Json.Decode.Pipeline exposing (optional, required)
 import Task
 import Time
 import TimeZone
-import Url.Builder as U exposing (crossOrigin, string)
+import Url.Builder as U exposing (crossOrigin)
 
 
 
@@ -31,7 +31,6 @@ type alias Model =
     , unit : Unit
     , timezone : Time.Zone
     , zonename : String
-    , dayOrNight : DayOrNight
     }
 
 
@@ -139,7 +138,6 @@ init _ =
       , unit = Celsius
       , timezone = Time.utc
       , zonename = "UTC"
-      , dayOrNight = Day
       }
     , TimeZone.getZone |> Task.attempt ReceiveTimeZone
     )
@@ -156,7 +154,7 @@ owmDataDecoder =
         |> required "main" owmMainDecoder
         |> required "sys" owmSysDecoder
         |> required "wind" (nullable owmWindDecoder)
-        |> required "name" Decode.string
+        |> required "name" string
         |> required "dt" int
 
 
@@ -169,9 +167,9 @@ owmWeatherDecoder : Decoder OwmWeather
 owmWeatherDecoder =
     Decode.succeed OwmWeather
         |> required "id" int
-        |> required "main" Decode.string
-        |> required "description" Decode.string
-        |> required "icon" Decode.string
+        |> required "main" string
+        |> required "description" string
+        |> required "icon" string
 
 
 owmMainDecoder : Decoder OwmMain
@@ -194,7 +192,7 @@ owmSysDecoder =
         |> optional "type" (nullable int) Nothing
         |> optional "id" (nullable int) Nothing
         |> required "message" float
-        |> required "country" Decode.string
+        |> required "country" string
         |> required "sunrise" int
         |> required "sunset" int
 
@@ -287,7 +285,7 @@ update msg model =
                     in
                     case owmResponse of
                         Ok data ->
-                            ( { model | weatherData = SuccessWeatherData data, dayOrNight = getDayOrNight data }
+                            ( { model | weatherData = SuccessWeatherData data }
                             , let
                                 resultUrl =
                                     crossOrigin owmApiBaseUrl [ "forecast" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
@@ -545,7 +543,7 @@ viewResultWeatherData model data =
             getWeather data.weather
     in
     div [ class "box" ]
-        [ viewWeatherCatchPhrase model weatherData data
+        [ viewWeatherCatchPhrase weatherData data
         , div [ class "level-item" ]
             [ table [ class "table is-hoverable is-striped is-fullwidth" ]
                 [ thead []
@@ -662,87 +660,96 @@ viewForecastRow forecast model =
         ]
 
 
-viewWeatherCatchPhrase : Model -> OwmWeather -> OwmData -> Html Msg
-viewWeatherCatchPhrase model weather data =
+getKindOfDayPhrase : OwmData -> String
+getKindOfDayPhrase owmData =
+    case getKindOfDay owmData of
+        Normal ->
+            ""
+
+        Cold ->
+            "Keep warm!"
+
+        Hot ->
+            "Stay hydrated!"
+
+        Fantastic ->
+            "Enjoy your day!"
+
+
+getWeatherCatchAndIcon : OwmWeather -> OwmData -> ( String, String )
+getWeatherCatchAndIcon owmWeather owmData =
     let
         symbol =
-            if model.dayOrNight == Day then
-                "sun"
+            case getDayOrNight owmData of
+                Day ->
+                    "sun"
 
-            else
-                "moon"
+                Night ->
+                    "moon"
+    in
+    if owmWeather.id > 802 then
+        ( "cloud"
+        , "I'm sure there's a silver lining."
+        )
 
-        kindOfDayPhrase =
-            case getKindOfDay data of
-                Normal ->
-                    ""
+    else if owmWeather.id > 800 then
+        ( "cloud-" ++ symbol
+        , "What's a few clouds, ey?"
+        )
 
-                Cold ->
-                    "Keep warm!"
+    else if owmWeather.id == 800 then
+        ( symbol
+        , "Clear blue sky!"
+        )
 
-                Hot ->
-                    "Stay hydrated!"
+    else if owmWeather.id >= 730 then
+        ( "cloud-meatball"
+        , "The skies are falling!"
+        )
 
-                Fantastic ->
-                    "Enjoy your day!"
+    else if owmWeather.id >= 700 then
+        ( "smog"
+        , "Sight ain't so great today!"
+        )
 
+    else if owmWeather.id >= 600 then
+        ( "snowflake"
+        , "Winter is coming."
+        )
+
+    else if owmWeather.id >= 500 then
+        ( "cloud-showers-heavy"
+        , "Might wanna get an umbrella."
+        )
+
+    else if owmWeather.id >= 300 then
+        ( "cloud-" ++ symbol ++ "rain"
+        , "It's not rain, more like a curative mist."
+        )
+
+    else if owmWeather.id >= 200 then
+        ( "bolt"
+        , "Thunderbolt and lightning? Check."
+        )
+
+    else
+        ( "rainbow"
+        , "Here's your weather."
+        )
+
+
+viewWeatherCatchPhrase : OwmWeather -> OwmData -> Html Msg
+viewWeatherCatchPhrase weather data =
+    let
         ( icon, catchphrase ) =
-            if weather.id > 802 then
-                ( "cloud"
-                , "I'm sure there's a silver lining."
-                )
-
-            else if weather.id > 800 then
-                ( "cloud-" ++ symbol
-                , "What's a few clouds, ey?"
-                )
-
-            else if weather.id == 800 then
-                ( symbol
-                , "Clear blue sky!"
-                )
-
-            else if weather.id >= 730 then
-                ( "cloud-meatball"
-                , "The skies are falling!"
-                )
-
-            else if weather.id >= 700 then
-                ( "smog"
-                , "Sight ain't so great today!"
-                )
-
-            else if weather.id >= 600 then
-                ( "snowflake"
-                , "Winter is coming."
-                )
-
-            else if weather.id >= 500 then
-                ( "cloud-showers-heavy"
-                , "Might wanna get an umbrella."
-                )
-
-            else if weather.id >= 300 then
-                ( "cloud-" ++ symbol ++ "rain"
-                , "It's not rain, more like a curative mist."
-                )
-
-            else if weather.id >= 200 then
-                ( "bolt"
-                , "Thunderbolt and lightning? Check."
-                )
-
-            else
-                ( "rainbow"
-                , "Here's your weather report."
-                )
+            getWeatherCatchAndIcon weather data
     in
     div [ class "title is-3 is-spaced" ]
         [ p []
             [ i [ class ("fa fa-" ++ icon) ] []
             ]
         , p [] [ text catchphrase ]
-        , p [] [ text kindOfDayPhrase ]
+        , p [] [ getKindOfDayPhrase data |> text ]
         ]
 
 
