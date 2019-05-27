@@ -4,8 +4,8 @@ import Browser
 import Config exposing (owmApiBaseUrl, owmApiKey)
 import Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
 import Dict exposing (Dict)
-import Html exposing (Html, button, div, h1, h3, i, input, nav, option, p, section, select, span, table, tbody, td, text, th, thead, tr)
-import Html.Attributes exposing (class, disabled, placeholder, selected, value)
+import Html exposing (Html, a, b, br, button, div, footer, h1, h3, i, input, nav, option, p, section, select, span, table, tbody, td, text, th, thead, tr)
+import Html.Attributes exposing (class, disabled, href, placeholder, selected, target, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, decodeString, float, int, nullable, string)
@@ -412,6 +412,23 @@ view model =
 
                     ResultPage ->
                         viewResultPage model
+                ]
+            ]
+        , footer [ class "footer" ]
+            [ div []
+                [ p []
+                    [ b [] [ text "Elm Weather App" ]
+                    , text " by "
+                    , a [ href "https://twitter.com/matspod", target "_blank" ] [ text "@matsPod" ]
+                    , br [] []
+                    ]
+                , p []
+                    [ a [ class "button", href "https://github.com/MatsLanGoH/elm-playground/" ]
+                        [ span [ class "icon" ]
+                            [ i [ class "fab fa-github" ] [] ]
+                        , span [] [ text "Github" ]
+                        ]
+                    ]
                 ]
             ]
         ]
