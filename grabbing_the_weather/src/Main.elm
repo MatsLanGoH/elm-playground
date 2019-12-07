@@ -113,7 +113,6 @@ type alias OwmMain =
 type alias OwmSys =
     { type_ : Maybe Int
     , id_ : Maybe Int
-    , message : Float
     , country : String
     , sunrise : Int
     , sunset : Int
@@ -191,7 +190,6 @@ owmSysDecoder =
     Decode.succeed OwmSys
         |> optional "type" (nullable int) Nothing
         |> optional "id" (nullable int) Nothing
-        |> required "message" float
         |> required "country" string
         |> required "sunrise" int
         |> required "sunset" int
