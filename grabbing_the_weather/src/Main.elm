@@ -1,7 +1,7 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
-import Config exposing (owmApiBaseUrl, owmApiKey)
+import Config exposing (owmApiBaseUrl)
 import Convert exposing (humanTimeHMS, humanTimeMD, kelvinToCelsius, kelvinToFahrenheit)
 import Dict exposing (Dict)
 import Html exposing (Html, a, b, br, button, div, footer, h1, h3, i, input, nav, option, p, section, select, span, table, tbody, td, text, th, thead, tr)
@@ -31,6 +31,7 @@ type alias Model =
     , unit : Unit
     , timezone : Time.Zone
     , zonename : String
+    , owmApiKey : String
     }
 
 
@@ -124,9 +125,12 @@ type alias OwmWind =
     , degree : Maybe Float
     }
 
+type alias Flags = {
+    apiKey : String
+    }
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : Flags -> ( Model, Cmd Msg )
+init flags =
     ( { currentPage = SearchPage
       , previousPage = Nothing
       , navbar = Inactive
@@ -137,6 +141,7 @@ init _ =
       , unit = Celsius
       , timezone = Time.utc
       , zonename = "UTC"
+      , owmApiKey = flags.apiKey
       }
     , TimeZone.getZone |> Task.attempt ReceiveTimeZone
     )
@@ -244,7 +249,7 @@ update msg model =
             ( model
             , let
                 resultUrl =
-                    crossOrigin owmApiBaseUrl [ "weather" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
+                    crossOrigin owmApiBaseUrl [ "weather" ] [ U.string "q" model.location, U.string "appid" model.owmApiKey ]
               in
               Http.get
                 { url = resultUrl
@@ -286,7 +291,7 @@ update msg model =
                             ( { model | weatherData = SuccessWeatherData data }
                             , let
                                 resultUrl =
-                                    crossOrigin owmApiBaseUrl [ "forecast" ] [ U.string "q" model.location, U.string "appid" owmApiKey ]
+                                    crossOrigin owmApiBaseUrl [ "forecast" ] [ U.string "q" model.location, U.string "appid" model.owmApiKey ]
                               in
                               Http.get
                                 { url = resultUrl
@@ -851,7 +856,7 @@ viewWind owmWind =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.element
         { view = view
