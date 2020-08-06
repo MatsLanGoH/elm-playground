@@ -1,11 +1,4 @@
-module Config exposing (owmApiBaseUrl, owmApiKey)
-
--- Set API key from https://www.openweathermap.org
-
-
-owmApiKey : String
-owmApiKey =
-    ""
+module Config exposing (owmApiBaseUrl)
 
 
 owmApiBaseUrl : String
